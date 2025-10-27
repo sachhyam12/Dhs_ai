@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.css" />
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .contact-section {
+            max-width: 600px;
+            margin: auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #4b9cd3;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #6c757d;
+            text-align: center;
+        }
+        .form-control {
+            margin-bottom: 15px;
+        }
+        .btn {
+            background: linear-gradient(to right, #6a11cb, #2575fc);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Contact Form -->
+    <section class="contact-section">
+        <h2>Contact Us</h2>
+        <p>If you have any questions or need assistance, please fill out the form below.</p>
+
+        <form id="contactForm">
+            <input type="email" id="user_email" class="form-control" placeholder="Your Email" required>
+            <input type="text" id="user_name" class="form-control" placeholder="Your Name" required>
+            <input type="text" id="subject" class="form-control" placeholder="Subject" required>
+            <textarea id="message" class="form-control" placeholder="Message" rows="4" required></textarea>
+            <button type="submit" class="btn">Send Message</button>
+        </form>
+    </section>
+
+    <!-- Toast Notification Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastify-js/1.12.0/toastify.min.js"></script>
+
+    <!-- EmailJS and JavaScript -->
+    <script>
+        // Initialize EmailJS
+        (function () {
+            emailjs.init("Ig6mei9bBiHFKp-L3"); // Public Key
+        })();
+
+        // Handle form submission
+        document.getElementById('contactForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+
+            // Send the email using EmailJS
+            emailjs.sendForm('service_femqm5m', 'template_66mgcv8', formData)
+                .then(function (response) {
+                    console.log('SUCCESS!', response);
+                    // Show success toast
+                    Toastify({
+                        text: "Message sent successfully! ✅",
+                        duration: 3000,
+                        backgroundColor: "#4CAF50",
+                        close: true,
+                    }).showToast();
+                    form.reset(); // Reset the form after success
+                }, function (error) {
+                    console.log('FAILED...', error);
+                    // Show error toast
+                    Toastify({
+                        text: "Failed to send message. Please try again.",
+                        duration: 3000,
+                        backgroundColor: "#f44336",
+                        close: true,
+                    }).showToast();
+                });
+        });
+    </script>
+</body>
+</html>
