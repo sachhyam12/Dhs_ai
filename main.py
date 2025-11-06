@@ -1,38 +1,21 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template,jsonify, request
+from flask_cors import CORS
 import numpy as np
 import pandas as pd
 import pickle
+import ast
 
-#load database
+app = Flask(__name__)
+CORS(app)
+
+# Load your CSVs and model as before
 precautions = pd.read_csv("datasets/precautions_df.csv")
 workout = pd.read_csv("datasets/suggest_df.csv")
 description = pd.read_csv("datasets/description.csv")
 medications = pd.read_csv("datasets/medications.csv")
-diets= pd.read_csv("datasets/diets.csv")
+diets = pd.read_csv("datasets/diets.csv")
 
-#load model
-svc=pickle.load(open("models/svc.pkl",'rb'))
-
-app = Flask(__name__)
-#custom and helping functions
-def helper(disease):
-    desc = description[description['Disease'] == disease]['Description']
-    desc = " ".join([w for w in desc])
-
-    pre = precautions[precautions['Disease'] == disease][
-        ['Precaution_1', 'Precaution_2', 'Precaution_3', 'Precaution_4']]
-    pre = [col for col in pre.values]
-
-    med = medications[medications['Disease'] == disease]['Medication']
-    med = [med for med in med.values]
-
-    die = diets[diets['Disease'] == disease]['Diet']
-    die = [die for die in die.values]
-
-    wrkout = workout[workout['disease'] == disease]['workout']
-
-    return desc, pre, med, die, wrkout
-
+svc = pickle.load(open("models/svc.pkl", "rb"))
 
 symptoms_dict = {'itching': 0, 'skin_rash': 1, 'nodal_skin_eruptions': 2, 'continuous_sneezing': 3, 'shivering': 4,
                  'chills': 5, 'joint_pain': 6, 'stomach_pain': 7, 'acidity': 8, 'ulcers_on_tongue': 9,
@@ -79,35 +62,73 @@ diseases_list = {15: 'Fungal infection', 4: 'Allergy', 16: 'GERD', 9: 'Chronic c
                  35: 'Psoriasis', 27: 'Impetigo'}
 
 
-# model prediction function
+# --- Helper function ---
+def helper(disease):
+    desc = description.loc[description['Disease'] == disease, 'Description'].values
+    desc = desc[0] if len(desc) > 0 else "No description available."
+
+    # Precautions
+    pre = precautions.loc[precautions['Disease'] == disease, ['Precaution_1', 'Precaution_2', 'Precaution_3', 'Precaution_4']]
+    pre_list = pre.values.flatten().tolist() if not pre.empty else []
+    pre_list = [p for p in pre_list if isinstance(p, str) and p.strip()]
+
+    # Medications (parse stringified lists)
+    med_raw = medications.loc[medications['Disease'] == disease, 'Medication']
+    med_list = []
+    if not med_raw.empty:
+        try:
+            med_list = ast.literal_eval(med_raw.iloc[0])  # safely convert string to list
+        except Exception:
+            med_list = [med_raw.iloc[0]]  # fallback if parsing fails
+
+    # Diet (parse stringified lists too)
+    die_raw = diets.loc[diets['Disease'] == disease, 'Diet']
+    die_list = []
+    if not die_raw.empty:
+        try:
+            die_list = ast.literal_eval(die_raw.iloc[0])
+        except Exception:
+            die_list = [die_raw.iloc[0]]
+
+    # Workout (these may already be strings)
+    wrkout = workout.loc[workout['disease'] == disease, 'workout'].tolist()
+    wrkout = [w for w in wrkout if isinstance(w, str) and w.strip()]
+
+    return desc, pre_list, med_list, die_list, wrkout
+
+
+# --- Prediction logic ---
 def get_predicted_value(patient_symptoms):
     input_vector = np.zeros(len(symptoms_dict))
-
     for item in patient_symptoms:
-        input_vector[symptoms_dict[item]] = 1
+        if item in symptoms_dict:
+            input_vector[symptoms_dict[item]] = 1
     return diseases_list[svc.predict([input_vector])[0]]
-#routes
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-@app.route('/predict',methods=['POST','GET'])
+# --- API route ---
+@app.route("/predict", methods=["POST"])
 def predict():
-    if request.method == 'POST':
-        symptoms = request.form.get('symptoms')
-        user_symptoms = [s.strip() for s in symptoms.split(',')]
-        user_symptoms = [sym.strip("[]' ") for sym in user_symptoms]
-        predicted_disease = get_predicted_value(user_symptoms)
-        desc, pre, med, die, wrkout = helper(predicted_disease)
+    data = request.get_json()
+    print("Received JSON:", data)
 
-        aid_list=[]
-        for i in pre[0]:
-            aid_list.append(i)
+    user_symptoms = data.get("symptoms", [])
+    if not isinstance(user_symptoms, list) or not user_symptoms:
+        return jsonify({"error": "Please provide a valid list of symptoms"}), 400
 
+    predicted_disease = get_predicted_value(user_symptoms)
+    desc, pre, med, die, wrkout = helper(predicted_disease)
 
+    response = {
+        "predicted_disease": predicted_disease,
+        "description": desc,
+        "precautions": pre,
+        "medications": med,
+        "diet": die,
+        "workout": wrkout,
+    }
 
-
-        return render_template('index.html',predicted_disease=predicted_disease,dis_des=desc,dis_aid=aid_list,dis_med=med,dis_pre=wrkout,dis_diet=die)
+    print("Response:", response)
+    return jsonify(response)
 
 
 @app.route('/about')
@@ -124,4 +145,5 @@ def developer():
 
 #python main
 if __name__=="__main__":
-    app.run(debug=True)
+    app.run(debug=True,port=5000)
+
