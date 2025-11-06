@@ -106,6 +106,11 @@ def get_predicted_value(patient_symptoms):
     return diseases_list[svc.predict([input_vector])[0]]
 
 # --- API route ---
+
+@app.route("/")
+def index():
+    return "Healthcare AI model is live!"
+
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json()
